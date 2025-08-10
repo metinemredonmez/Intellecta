@@ -111,7 +111,4 @@ btn.pack(pady=10)
 
 output_box = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=32)
 output_box.tag_config("warn", foreground="#b22222")
-output_box.tag_config("ok", foreground="#1a7f37")
-output_box.pack(pady=10)
-
-root.mainloop()
+output

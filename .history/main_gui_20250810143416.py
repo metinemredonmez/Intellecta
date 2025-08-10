@@ -14,26 +14,8 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain.docstore.document import Document
 
-from hallucination_guard import check_claims, extract_claims_for_guard
-
 load_dotenv()
 client = OpenAIClient()
-
-def insert_guard_section(title: str, results, box: tk.Text):
-    box.insert(tk.END, f"\n=== Hallucination Check: {title} ===\n")
-    if not results:
-        box.insert(tk.END, "(no claims)\n")
-        return
-    for r in results:
-        tag = "ok"
-        if r["overall_confidence"] < 0.5 or (not r["similarity_ok"]) or (not r["llm_grounded"]):
-            tag = "warn"
-        line = (
-            f"- CLAIM: {r['claim']}\n"
-            f"  overall_conf={r['overall_confidence']:.2f}  "
-            f"similarity_ok={r['similarity_ok']}  llm_grounded={r['llm_grounded']}\n"
-        )
-        box.insert(tk.END, line, tag)
 
 def analyze_audio(audio_path: str):
     output_box.delete(1.0, tk.END)
@@ -81,20 +63,9 @@ def analyze_audio(audio_path: str):
         retriever=vstore.as_retriever()
     )
     query = "What action items were decided during the meeting?"
-    qa_result = qa.invoke(query)
-    answer_text = qa_result["result"] if isinstance(qa_result, dict) and "result" in qa_result else str(qa_result)
+    answer = qa.invoke(query)  # updated
     output_box.insert(tk.END, "\n--- Query ---\n" + query + "\n")
-    output_box.insert(tk.END, "\n--- Answer ---\n" + answer_text + "\n")
-
-    # 6) Hallucination Guard
-    claims = extract_claims_for_guard(summary, actions, answer_text)
-    sum_res = check_claims(transcript, claims["summary"])
-    act_res = check_claims(transcript, claims["actions"])
-    qa_res  = check_claims(transcript, claims["qa"])
-
-    insert_guard_section("Summary", sum_res, output_box)
-    insert_guard_section("Action Items", act_res, output_box)
-    insert_guard_section("QA Answer", qa_res, output_box)
+    output_box.insert(tk.END, "\n--- Answer ---\n" + str(answer) + "\n")
 
 def process_audio():
     path = filedialog.askopenfilename(filetypes=[("Audio Files", "*.wav *.mp3")])
@@ -103,15 +74,13 @@ def process_audio():
     threading.Thread(target=analyze_audio, args=(path,), daemon=True).start()
 
 root = tk.Tk()
-root.title("Intellecta - ASR + NLP + RAG Demo (with Hallucination Guard)")
-root.geometry("860x680")
+root.title("Intellecta - ASR + NLP + RAG Demo")
+root.geometry("820x620")
 
 btn = tk.Button(root, text="🎤 Select Audio & Analyze", command=process_audio, font=("Arial", 14))
 btn.pack(pady=10)
 
-output_box = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=32)
-output_box.tag_config("warn", foreground="#b22222")
-output_box.tag_config("ok", foreground="#1a7f37")
+output_box = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=30)
 output_box.pack(pady=10)
 
 root.mainloop()

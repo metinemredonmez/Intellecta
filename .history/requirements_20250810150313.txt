@@ -1,0 +1,10 @@
+pip install openai>=1.30.0 \
+            langchain \
+            langchain-community \
+            langchain-openai \
+            faiss-cpu \
+            openai-whisper \
+            tiktoken \
+            matplotlib \
+            python-dotenv \
+            pyttsx3

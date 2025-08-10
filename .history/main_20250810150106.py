@@ -73,38 +73,4 @@ def main():
     sentiment = oai_complete(client, f"Give the overall sentiment as a single word (positive/negative/neutral):\n{transcript}")
     actions   = oai_complete(client, f"Extract concrete action items as a bullet list:\n{transcript}")
 
-    print("\n--- Summary ---\n", summary)
-    print("\n--- Sentiment ---\n", sentiment)
-    print("\n--- Action Items ---\n", actions)
-
-    # 3) RAG QA over this transcript
-    print("\n🔹 Building Vector DB...")
-    docs = [Document(page_content=transcript, metadata={"source": "meeting"})]
-    embeddings = OpenAIEmbeddings()
-    vstore = FAISS.from_documents(docs, embeddings)
-
-    qa = RetrievalQA.from_chain_type(
-        llm=ChatOpenAI(model="gpt-4o-mini", temperature=0),
-        chain_type="stuff",
-        retriever=vstore.as_retriever()
-    )
-    query = "What action items were decided during the meeting?"
-    qa_result = qa.invoke(query)
-    # RetrievalQA sometimes returns dict; show safe
-    answer_text = qa_result["result"] if isinstance(qa_result, dict) and "result" in qa_result else str(qa_result)
-
-    print("\n--- Query ---\n", query)
-    print("\n--- Answer ---\n", answer_text)
-
-    # 4) Hallucination Guard – claims from summary/actions/qa
-    claims = extract_claims_for_guard(summary, actions, answer_text)
-    sum_res = check_claims(transcript, claims["summary"])
-    act_res = check_claims(transcript, claims["actions"])
-    qa_res  = check_claims(transcript, claims["qa"])
-
-    print_guard_report("Summary", sum_res)
-    print_guard_report("Action Items", act_res)
-    print_guard_report("QA Answer", qa_res)
-
-if __name__ == "__main__":
-    main()
+    print("\n---

@@ -8,13 +8,9 @@ from dotenv import load_dotenv
 from openai import OpenAI as OpenAIClient
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
+
 from langchain.chains import RetrievalQA
 from langchain.docstore.document import Document
-
-from hallucination_guard import (
-    check_claims,
-    extract_claims_for_guard,
-)
 
 load_dotenv()  # reads .env
 
@@ -30,6 +26,7 @@ def require_api_key():
 def transcribe(path: str) -> str:
     print("🔹 Starting ASR...")
     model = whisper.load_model("base")
+    # omit language to let Whisper auto-detect (works for English/Turkish)
     result = model.transcribe(path)
     return (result.get("text") or "").strip()
 
@@ -40,21 +37,6 @@ def oai_complete(client, prompt: str) -> str:
         temperature=0
     )
     return resp.choices[0].message.content.strip()
-
-def print_guard_report(title: str, results):
-    print(f"\n=== Hallucination Check: {title} ===")
-    if not results:
-        print("(no claims)")
-        return
-    for i, r in enumerate(results, 1):
-        print(f"\n[{i}] CLAIM: {r['claim']}")
-        print(f"  - similarity_ok: {r['similarity_ok']} (scores={ [round(s,3) for s in r['similarity_scores']] })")
-        print(f"  - llm_grounded:  {r['llm_grounded']} (conf={r['llm_conf']:.2f})")
-        print(f"  - overall_confidence: {r['overall_confidence']:.2f}  {'⚠️' if r['flagged'] else '✅'}")
-        if r["support_passages"]:
-            sp = r['support_passages'][0][:200].replace("\n", " ")
-            print(f"  - support: {sp}...")
-        print(f"  - reason: {r['reason']}")
 
 def main():
     require_api_key()
@@ -89,22 +71,10 @@ def main():
         retriever=vstore.as_retriever()
     )
     query = "What action items were decided during the meeting?"
-    qa_result = qa.invoke(query)
-    # RetrievalQA sometimes returns dict; show safe
-    answer_text = qa_result["result"] if isinstance(qa_result, dict) and "result" in qa_result else str(qa_result)
+    answer = qa.invoke(query)
 
     print("\n--- Query ---\n", query)
-    print("\n--- Answer ---\n", answer_text)
-
-    # 4) Hallucination Guard – claims from summary/actions/qa
-    claims = extract_claims_for_guard(summary, actions, answer_text)
-    sum_res = check_claims(transcript, claims["summary"])
-    act_res = check_claims(transcript, claims["actions"])
-    qa_res  = check_claims(transcript, claims["qa"])
-
-    print_guard_report("Summary", sum_res)
-    print_guard_report("Action Items", act_res)
-    print_guard_report("QA Answer", qa_res)
+    print("\n--- Answer ---\n", answer)
 
 if __name__ == "__main__":
     main()
